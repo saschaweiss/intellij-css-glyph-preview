@@ -1,0 +1,15 @@
+# Gradle
+.gradle/
+build/
+
+# IntelliJ
+.idea/
+*.iml
+out/
+.intellijPlatform/
+
+# OS
+.DS_Store
+
+# Local config
+local.properties

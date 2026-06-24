@@ -1,0 +1,60 @@
+<idea-plugin url="https://github.com/saschaweiss/intellij-css-glyph-preview">
+    <id>io.github.saschaweiss.cssglyphpreview</id>
+    <name>CSS Glyph Preview</name>
+    <vendor email="info@saschaweiss.com" url="https://github.com/saschaweiss">saschaweiss</vendor>
+
+    <description><![CDATA[
+        <p>Preview icon-font glyphs (such as FontAwesome) directly in your CSS and SCSS editor.</p>
+        <ul>
+            <li><b>Gutter preview</b> &mdash; shows the rendered glyph next to every
+                <code>content: "\fXXXX"</code> declaration. The rule's
+                <code>font-family</code> (SCSS variables are resolved) and
+                <code>font-weight</code> decide which font is used.</li>
+            <li><b>Icon picker</b> &mdash; code completion inside the <code>content</code> value,
+                searchable by icon name, each item showing its glyph. Selecting an icon inserts the
+                escape and, if needed, sets the required <code>font-weight</code> so it also renders
+                in the browser.</li>
+        </ul>
+        <p>You register your own icon fonts (<code>.ttf</code>/<code>.otf</code>) and an optional
+        name map (e.g. FontAwesome's <code>fontawesome.min.css</code>) under
+        <b>Settings &gt; Tools &gt; CSS Glyph Preview</b>. The chosen files are copied into the IDE
+        config folder, so they keep working after the originals are deleted.</p>
+        <p><i>Requires an IDE with bundled CSS support (IntelliJ IDEA Ultimate, WebStorm, PhpStorm,
+        PyCharm Professional, etc.). Not affiliated with or endorsed by Fonticons, Inc.
+        (FontAwesome).</i></p>
+    ]]></description>
+
+    <change-notes><![CDATA[
+        <p><b>1.0.0</b></p>
+        <ul>
+            <li>Initial public release.</li>
+            <li>Gutter glyph preview for CSS/SCSS <code>content</code> declarations.</li>
+            <li>Searchable icon picker with automatic <code>font-weight</code> insertion.</li>
+            <li>FontAwesome 6/7 (<code>--fa</code>) and legacy <code>::before</code> metadata parsing.</li>
+            <li>Project-wide SCSS variable resolution and weight-preferred font fallback.</li>
+        </ul>
+    ]]></change-notes>
+
+    <!-- CSS PSI. SCSS reuses it; the Sass plugin is loaded via the Gradle dependency. -->
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.css</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <applicationService
+            serviceImplementation="io.github.saschaweiss.glyphpreview.settings.GlyphSettings"/>
+
+        <codeInsight.lineMarkerProvider
+            language="CSS"
+            implementationClass="io.github.saschaweiss.glyphpreview.marker.GlyphLineMarkerProvider"/>
+
+        <completion.contributor
+            language="CSS"
+            implementationClass="io.github.saschaweiss.glyphpreview.completion.GlyphCompletionContributor"/>
+
+        <applicationConfigurable
+            parentId="tools"
+            instance="io.github.saschaweiss.glyphpreview.settings.GlyphConfigurable"
+            id="io.github.saschaweiss.glyphpreview.settings"
+            displayName="CSS Glyph Preview"/>
+    </extensions>
+</idea-plugin>
