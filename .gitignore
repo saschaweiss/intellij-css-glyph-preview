@@ -13,3 +13,4 @@ out/
 
 # Local config
 local.properties
+/.kotlin/
