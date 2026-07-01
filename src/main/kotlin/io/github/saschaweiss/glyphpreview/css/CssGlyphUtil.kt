@@ -57,11 +57,15 @@ object CssGlyphUtil {
         return 400
     }
 
+    // A SCSS variable usage, with optional @use namespace: `$name` or `ns.$name`.
+    private val SCSS_VAR_USAGE = Regex("""^(?:[A-Za-z_][\w-]*\.)?\$([A-Za-z0-9_-]+)$""")
+
     private fun normalizeFamily(raw: String, element: PsiElement): String? {
         // Single value only — take the first family in a comma list.
         val first = raw.substringBefore(',').trim()
-        if (first.startsWith("$")) {
-            return resolveScssVariable(first.removePrefix("$"), element)
+        SCSS_VAR_USAGE.find(first)?.let { match ->
+            // Handles both `$font-awesome` and `@use`-namespaced `v.$font-awesome`.
+            return resolveScssVariable(match.groupValues[1], element)
         }
         return first.trim('"', '\'', ' ').ifBlank { null }
     }

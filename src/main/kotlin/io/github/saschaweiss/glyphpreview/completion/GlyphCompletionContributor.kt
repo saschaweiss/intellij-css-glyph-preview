@@ -72,6 +72,8 @@ class GlyphCompletionContributor : CompletionContributor() {
                     .withLookupString(glyph.name.removePrefix("fa-"))
                     .withInsertHandler { ctx, _ ->
                         ctx.document.replaceString(ctx.startOffset, ctx.tailOffset, escape)
+                        // The declaration is now complete → terminate it with a semicolon.
+                        ensureSemicolon(ctx, ctx.startOffset)
                         // Make sure the rule actually renders on the web: the picked
                         // glyph only exists at `requiredWeight`, so set font-weight
                         // if the rule's effective weight differs.
@@ -102,13 +104,27 @@ class GlyphCompletionContributor : CompletionContributor() {
                     "font-weight: $requiredWeight",
                 )
             } else {
-                // Insert a font-weight line above the content line, matching its indent.
+                // Insert a font-weight line AFTER the content line, matching its indent.
                 val line = doc.getLineNumber(offset)
                 val lineStart = doc.getLineStartOffset(line)
+                val lineEnd = doc.getLineEndOffset(line)
                 val indent = doc.getText(TextRange(lineStart, offset)).takeWhile { it == ' ' || it == '\t' }
-                doc.insertString(lineStart, "${indent}font-weight: $requiredWeight;\n")
+                doc.insertString(lineEnd, "\n${indent}font-weight: $requiredWeight;")
             }
             pdm.commitDocument(doc)
+        }
+
+        /** Appends a `;` at the end of the content line if it isn't terminated yet. */
+        private fun ensureSemicolon(ctx: InsertionContext, offset: Int) {
+            val doc = ctx.document
+            val line = doc.getLineNumber(offset)
+            val lineStart = doc.getLineStartOffset(line)
+            val lineEnd = doc.getLineEndOffset(line)
+            val lineText = doc.getText(TextRange(lineStart, lineEnd))
+            val trimmed = lineText.trimEnd()
+            if (trimmed.isNotEmpty() && !trimmed.endsWith(";")) {
+                doc.insertString(lineStart + trimmed.length, ";")
+            }
         }
     }
 }

@@ -9,6 +9,7 @@ import com.intellij.openapi.ui.ValidationInfo
 import com.intellij.ui.DocumentAdapter
 import com.intellij.ui.components.JBTextField
 import com.intellij.util.ui.FormBuilder
+import io.github.saschaweiss.glyphpreview.font.GlyphMetadata
 import io.github.saschaweiss.glyphpreview.font.GlyphRenderer
 import java.io.File
 import java.nio.file.Files
@@ -156,9 +157,11 @@ object FontAssets {
     }
 
     /**
-     * The name->codepoint rules live in fontawesome(.min).css / all(.min).css —
-     * NOT in the per-style solid/regular files. Looks in the font's folder,
-     * its parent, and sibling/parent `css` folders.
+     * Finds an icon-map CSS near the font — font-agnostic. Instead of hard-coding
+     * FontAwesome filenames, it scans the font's folder, its parent, and adjacent
+     * `css` folders for `.css` files and picks the one that parses to the richest
+     * name->codepoint map. Works for FontAwesome, Material Design Icons, LineIcons,
+     * Unicons, CoreUI, etc.
      */
     fun findMetadataNear(fontPath: String): String? {
         val fontDir = File(fontPath).parentFile ?: return null
@@ -167,15 +170,23 @@ object FontAssets {
             fontDir.parentFile,
             File(fontDir, "css"),
             fontDir.parentFile?.let { File(it, "css") },
-        )
-        val names = listOf("fontawesome.min.css", "fontawesome.css", "all.min.css", "all.css")
+        ).filter { it.isDirectory }.distinctBy { it.absolutePath }
+
+        var best: String? = null
+        var bestCount = 0
         for (dir in dirs) {
-            if (!dir.isDirectory) continue
-            for (name in names) {
-                val f = File(dir, name)
-                if (f.isFile) return f.path
+            val cssFiles = dir.listFiles { f -> f.isFile && f.name.endsWith(".css", ignoreCase = true) }
+                ?: continue
+            for (css in cssFiles) {
+                val count = GlyphMetadata.load(css.path).size
+                if (count > bestCount) {
+                    bestCount = count
+                    best = css.path
+                }
             }
         }
-        return null
+        // A handful of entries filters out non-icon stylesheets that happen to
+        // contain a stray content: "\..." rule.
+        return best.takeIf { bestCount >= 5 }
     }
 }

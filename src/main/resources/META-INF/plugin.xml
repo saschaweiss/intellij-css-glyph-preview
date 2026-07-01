@@ -4,27 +4,48 @@
     <vendor email="info@saschaweiss.com" url="https://github.com/saschaweiss">saschaweiss</vendor>
 
     <description><![CDATA[
-        <p>Preview icon-font glyphs (such as FontAwesome) directly in your CSS and SCSS editor.</p>
+        <p>Preview icon-font glyphs right in the editor &mdash; in CSS/SCSS <b>and</b> HTML.
+        Works with any icon font that ships a CSS map with codepoints: FontAwesome,
+        Material Design Icons, LineIcons, Linearicons, Unicons, CoreUI Icons, and more.</p>
+        <p><b>In CSS / SCSS:</b></p>
         <ul>
-            <li><b>Gutter preview</b> &mdash; shows the rendered glyph next to every
-                <code>content: "\fXXXX"</code> declaration. The rule's
-                <code>font-family</code> (SCSS variables are resolved) and
-                <code>font-weight</code> decide which font is used.</li>
-            <li><b>Icon picker</b> &mdash; code completion inside the <code>content</code> value,
-                searchable by icon name, each item showing its glyph. Selecting an icon inserts the
-                escape and, if needed, sets the required <code>font-weight</code> so it also renders
-                in the browser.</li>
+            <li><b>Gutter preview</b> next to every <code>content: "\fXXXX"</code> declaration. The
+                rule's <code>font-family</code> (SCSS variables, incl. <code>@use</code> namespaces,
+                are resolved) and <code>font-weight</code> decide which font is used.</li>
+            <li><b>Icon picker</b> in the <code>content</code> value, searchable by icon name, each
+                item showing its glyph. Selecting an icon inserts the escape and, if needed, sets the
+                required <code>font-weight</code> so it also renders in the browser.</li>
         </ul>
-        <p>You register your own icon fonts (<code>.ttf</code>/<code>.otf</code>) and an optional
-        name map (e.g. FontAwesome's <code>fontawesome.min.css</code>) under
-        <b>Settings &gt; Tools &gt; CSS Glyph Preview</b>. The chosen files are copied into the IDE
-        config folder, so they keep working after the originals are deleted.</p>
+        <p><b>In HTML (and templates such as Twig):</b></p>
+        <ul>
+            <li><b>Gutter preview</b> next to <code>&lt;i class="fas fa-pencil"&gt;</code>.</li>
+            <li>Icon-font <b>class completions show the glyph inline</b> &mdash; existing suggestions
+                are decorated, not duplicated.</li>
+        </ul>
+        <p>Hovering an icon (Quick Documentation) shows a larger preview.</p>
+        <p>You register your own icon fonts (<code>.ttf</code>/<code>.otf</code>) plus their CSS name
+        map under <b>Settings &gt; Tools &gt; CSS Glyph Preview</b> &mdash; the map is auto-detected
+        next to the font when possible. Selected files are copied into the IDE config folder, so they
+        keep working after the originals are deleted.</p>
         <p><i>Requires an IDE with bundled CSS support (IntelliJ IDEA Ultimate, WebStorm, PhpStorm,
-        PyCharm Professional, etc.). Not affiliated with or endorsed by Fonticons, Inc.
-        (FontAwesome).</i></p>
+        PyCharm Professional, etc.). Only bitmap/vector icon fonts with an <code>@font-face</code>
+        codepoint map are supported &mdash; SVG-sprite icon sets are not. Not affiliated with or
+        endorsed by any of the icon-set projects mentioned.</i></p>
     ]]></description>
 
     <change-notes><![CDATA[
+        <p><b>1.1.0</b></p>
+        <ul>
+            <li><b>HTML support</b>: gutter preview for <code>&lt;i class="fas fa-pencil"&gt;</code>,
+                and icon-decorated class completions (no duplicate entries). Works in templates such
+                as Twig.</li>
+            <li><b>Any icon font</b>, not just FontAwesome: Material Design Icons, LineIcons,
+                Linearicons, Unicons, CoreUI Icons, etc. The name map is auto-detected next to the
+                font when adding it.</li>
+            <li><b>Hover preview</b> (Quick Documentation) showing a larger glyph in CSS and HTML.</li>
+            <li>SCSS variable resolution now handles <code>@use</code> namespaces
+                (<code>v.$font-awesome</code>).</li>
+        </ul>
         <p><b>1.0.0</b></p>
         <ul>
             <li>Initial public release.</li>
@@ -50,6 +71,24 @@
         <completion.contributor
             language="CSS"
             implementationClass="io.github.saschaweiss.glyphpreview.completion.GlyphCompletionContributor"/>
+
+        <!-- HTML: gutter preview + icon-decorated class completion (e.g. <i class="fas fa-pencil">) -->
+        <codeInsight.lineMarkerProvider
+            language="HTML"
+            implementationClass="io.github.saschaweiss.glyphpreview.html.HtmlGlyphLineMarkerProvider"/>
+
+        <completion.contributor
+            language="HTML"
+            order="first"
+            implementationClass="io.github.saschaweiss.glyphpreview.html.HtmlGlyphCompletionContributor"/>
+
+        <!-- Hover / Quick Documentation preview for CSS and HTML -->
+        <lang.documentationProvider
+            language="CSS"
+            implementationClass="io.github.saschaweiss.glyphpreview.doc.GlyphDocumentationProvider"/>
+        <lang.documentationProvider
+            language="HTML"
+            implementationClass="io.github.saschaweiss.glyphpreview.doc.GlyphDocumentationProvider"/>
 
         <applicationConfigurable
             parentId="tools"
