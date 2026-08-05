@@ -1,5 +1,7 @@
 package io.github.saschaweiss.glyphpreview.css
 
+import com.intellij.openapi.progress.ProcessCanceledException
+import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.vfs.VfsUtilCore
@@ -143,7 +145,15 @@ object CssGlyphUtil {
         }
         crossFileVarCache[name]?.let { return it }
 
-        val value = runCatching { scanContentRoots(project, regex) }.getOrNull()
+        // Must let ProcessCanceledException through so the read action yields to
+        // pending write actions (never swallow it in runCatching).
+        val value = try {
+            scanContentRoots(project, regex)
+        } catch (e: ProcessCanceledException) {
+            throw e
+        } catch (e: Exception) {
+            null
+        }
         if (value != null) crossFileVarCache[name] = value
         return value
     }
@@ -161,6 +171,7 @@ object CssGlyphUtil {
             var found: String? = null
             VfsUtilCore.visitChildrenRecursively(root, object : VirtualFileVisitor<Any?>() {
                 override fun visitFileEx(file: VirtualFile): Result {
+                    ProgressManager.checkCanceled() // stay cancellable → yield to write actions
                     if (found != null) return SKIP_CHILDREN
                     if (file.isDirectory) {
                         return if (file.name in SKIP_DIRS) SKIP_CHILDREN

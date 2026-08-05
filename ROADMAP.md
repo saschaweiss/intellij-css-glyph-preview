@@ -3,7 +3,8 @@
 Planned work after 1.1.0. Sequenced so each step is independently testable, and so
 the web-font decoders widen what auto-detection can offer.
 
-Milestones: **1.2.0** = auto-registration + woff, **1.3.0** = woff2.
+Status: **1.2.0 shipped** — Phase A (auto-registration) ✅ and B1 (woff) ✅.
+**B2 (woff2) is DEFERRED** (on the todo list) — see the notes under B2.
 
 ## Locked decisions
 
@@ -20,7 +21,7 @@ Milestones: **1.2.0** = auto-registration + woff, **1.3.0** = woff2.
     to a coarser `library-style | weight` key (e.g. `fontawesome-solid | 900`).
 - Auto-registration **never happens silently** — always one click to confirm.
 
-## Phase A — Auto-registration (1.2.0)
+## Phase A — Auto-registration (1.2.0) ✅ DONE
 
 ### A1 · `IconFontDetector`
 Given a target library derived from an unresolved usage, search the project for a matching font +
@@ -57,18 +58,28 @@ pairs whose CSS map parses to >= N icons).
 Shared idea: **decode once at registration**, cache the resulting `.ttf` in the config assets folder.
 `GlyphRenderer` is untouched; no per-render cost. The file chooser also accepts `.woff`/`.woff2`.
 
-### B1 · woff (1.2.0)
+### B1 · woff (1.2.0) ✅ DONE
 `WoffDecoder`: read the woff header + table directory, zlib-inflate each table, reassemble the sfnt.
-~200 LOC, low risk. Test: decode a known `.woff` → `Font.createFont` succeeds → `canDisplay`.
+Wired into `FontAssets.importAsset` (decode on registration) and `GlyphRenderer.baseFont` (decode on
+load, so family-name/`canDisplay` work on a raw `.woff`).
 
-### B2 · woff2 (1.3.0)
-- Bundle a Brotli decoder (`org.brotli:dec`, Apache-2.0) as an `implementation` dependency — verify
-  it lands in the plugin `lib/`.
-- `Woff2Decoder`: parse the woff2 header, Brotli-decompress, then reverse the woff2 glyf/loca
-  transform to reconstruct the sfnt (the hard, error-prone part — adapt an MIT/Apache reference).
-- Mandatory test with real FontAwesome/MDI woff2 (decode → `Font.createFont` → `canDisplay`).
-- Licensing: `org.brotli:dec` (Apache-2.0) is compatible with the MIT plugin; declare bundled deps
-  in the marketplace listing if required.
+### B2 · woff2 — DEFERRED (todo)
 
-After B2, `IconFontDetector` can also offer webfont-only libraries (many `node_modules` ship only
-woff2).
+Not started. There is no clean, low-risk path, which is why it's parked:
+
+- **Brotli** decompression is easy: `org.brotli:dec` (Apache-2.0, **pure Java, no JNI**).
+- The hard part is reversing the WOFF2 **glyf/loca transform** (encoders apply it by default):
+  re-serialise glyph outlines and rebuild `loca` — several hundred lines, and bugs show up as
+  "glyph looks wrong", not as clean errors. Cannot be verified without real fonts.
+- Ready-made libraries evaluated and rejected:
+  - **FontVerter** (`net.mabboud.fontverter`) does woff2→OpenType but pulls **jBrotli**, a
+    **native JNI** dependency → bundling platform-specific binaries in a Marketplace plugin is a
+    portability/review risk. Avoid.
+  - **Aspose Font** is commercial/paid → incompatible with the MIT plugin. Out.
+
+Recommendation when revisited: hand-roll with `org.brotli:dec` + a glyf-transform reversal (adapt
+the WOFF2 spec / an MIT reference), behind the same `importAsset`/`GlyphRenderer` hooks as woff, with
+real FA/MDI woff2 test fixtures. Low value vs. effort though — `.ttf`/`.otf`/`.woff` already cover
+most cases and woff2→ttf is a trivial one-off conversion for users, so this stays low priority.
+
+After B2, `IconFontDetector`'s `FONT_EXT` should add `woff2` so webfont-only libraries are offered.

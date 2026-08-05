@@ -1,5 +1,6 @@
 package io.github.saschaweiss.glyphpreview.detect
 
+import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.vfs.VfsUtilCore
@@ -54,6 +55,7 @@ object IconFontDetector {
         for (root in ProjectRootManager.getInstance(project).contentRoots) {
             VfsUtilCore.visitChildrenRecursively(root, object : VirtualFileVisitor<Any?>() {
                 override fun visitFileEx(file: VirtualFile): Result {
+                    ProgressManager.checkCanceled() // stay cancellable → yield to write actions
                     if (visits++ > MAX_VISITS) return SKIP_CHILDREN
                     if (file.isDirectory) {
                         return if (file.name in SKIP_DIRS) SKIP_CHILDREN else CONTINUE
