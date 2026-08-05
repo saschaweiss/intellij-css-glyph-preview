@@ -50,6 +50,16 @@ class GlyphSettings : PersistentStateComponent<GlyphSettings> {
     // Bound directly to the UI; mutated in place by the Configurable.
     var fonts: MutableList<FontEntry> = mutableListOf()
 
+    // "Don't ask again" set for auto-registration, keyed per font ("family|weight",
+    // or a coarser "library-style|weight" when the family can't be determined from HTML).
+    var ignoredFontKeys: MutableList<String> = mutableListOf()
+
+    fun isIgnored(key: String): Boolean = ignoredFontKeys.any { it.equals(key, ignoreCase = true) }
+
+    fun ignore(key: String) {
+        if (!isIgnored(key)) ignoredFontKeys.add(key)
+    }
+
     override fun getState(): GlyphSettings = this
 
     override fun loadState(state: GlyphSettings) {
@@ -66,7 +76,11 @@ class GlyphSettings : PersistentStateComponent<GlyphSettings> {
         val req = family?.trim().orEmpty()
         if (req.isEmpty()) return emptyList()
         return fonts.filter { it.familyMatches(req) }
-            .sortedByDescending { weight != null && it.weight == weight }
+            // Strict weight: a rule's weight only previews with a font registered at
+            // that weight (0 = wildcard). No cross-weight fallback — mirrors the browser,
+            // where e.g. font-weight:400 loads the regular @font-face, not the solid one.
+            .filter { weight == null || it.weight == 0 || it.weight == weight }
+            .sortedByDescending { it.weight == weight }
     }
 
     companion object {

@@ -24,9 +24,11 @@
         </ul>
         <p>Hovering an icon (Quick Documentation) shows a larger preview.</p>
         <p>You register your own icon fonts (<code>.ttf</code>/<code>.otf</code>) plus their CSS name
-        map under <b>Settings &gt; Tools &gt; CSS Glyph Preview</b> &mdash; the map is auto-detected
-        next to the font when possible. Selected files are copied into the IDE config folder, so they
-        keep working after the originals are deleted.</p>
+        map under <b>Settings &gt; Tools &gt; CSS Glyph Preview</b> (<code>.ttf</code>/<code>.otf</code>/<code>.woff</code>)
+        &mdash; the map is auto-detected next to the font. Even easier: when you open a file using a
+        known icon font that isn't set up yet, the plugin offers to find and register it from your
+        project in one click. Selected files are copied into the IDE config folder, so they keep
+        working after the originals are deleted.</p>
         <p><i>Requires an IDE with bundled CSS support (IntelliJ IDEA Ultimate, WebStorm, PhpStorm,
         PyCharm Professional, etc.). Only bitmap/vector icon fonts with an <code>@font-face</code>
         codepoint map are supported &mdash; SVG-sprite icon sets are not. Not affiliated with or
@@ -34,6 +36,17 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <p><b>1.2.0</b></p>
+        <ul>
+            <li><b>Auto-registration</b>: when you open a CSS/SCSS/HTML file using a known icon font
+                that isn't set up yet, the plugin offers to register the matching font found in your
+                project — one click, and it picks the font that actually contains the glyph.
+                Dismissable per font.</li>
+            <li><b>WOFF web fonts</b> are supported: a <code>.woff</code> is decoded to a usable font
+                on registration (WOFF2 is planned).</li>
+            <li>Strict <code>font-weight</code> matching and pseudo-element-aware cascade resolution
+                (font-family/weight from a sibling <code>&amp;:before, &amp;:after</code> rule).</li>
+        </ul>
         <p><b>1.1.0</b></p>
         <ul>
             <li><b>HTML support</b>: gutter preview for <code>&lt;i class="fas fa-pencil"&gt;</code>,
@@ -89,6 +102,9 @@
         <lang.documentationProvider
             language="HTML"
             implementationClass="io.github.saschaweiss.glyphpreview.doc.GlyphDocumentationProvider"/>
+
+        <!-- Auto-registration notifications -->
+        <notificationGroup id="CSS Glyph Preview" displayType="BALLOON"/>
 
         <applicationConfigurable
             parentId="tools"

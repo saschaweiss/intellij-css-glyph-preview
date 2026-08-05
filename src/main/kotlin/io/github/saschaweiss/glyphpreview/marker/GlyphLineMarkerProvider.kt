@@ -5,6 +5,8 @@ import com.intellij.codeInsight.daemon.LineMarkerProvider
 import com.intellij.openapi.editor.markup.GutterIconRenderer
 import com.intellij.psi.PsiElement
 import io.github.saschaweiss.glyphpreview.css.CssGlyphUtil
+import io.github.saschaweiss.glyphpreview.detect.AutoRegisterService
+import io.github.saschaweiss.glyphpreview.detect.IconLibrary
 import io.github.saschaweiss.glyphpreview.font.GlyphRenderer
 import io.github.saschaweiss.glyphpreview.settings.GlyphSettings
 
@@ -36,15 +38,25 @@ class GlyphLineMarkerProvider : LineMarkerProvider {
 
         // Weight-preferred, but fall back to any same-family font that can render
         // the glyph (e.g. solid for a solid-only icon written without weight 900).
-        val (entry, icon) = candidates.firstNotNullOfOrNull { e ->
+        val rendered = candidates.firstNotNullOfOrNull { e ->
             GlyphRenderer.icon(e.fontFilePath, codepoint)?.let { e to it }
-        } ?: return null
+        }
+        if (rendered == null) {
+            // Real icon usage we can't render → let auto-registration offer to help.
+            if (family != null) {
+                IconLibrary.fromCss(family, weight, codepoint)?.let {
+                    AutoRegisterService.getInstance(element.project).consider(it)
+                }
+            }
+            return null
+        }
+        val (entry, icon) = rendered
 
         return LineMarkerInfo(
             element,
             element.textRange,
             icon,
-            { "%s  U+%04X".format(family ?: entry.fontFamily, codepoint) },
+            { "%s · U+%04X".format(family ?: entry.fontFamily, codepoint) },
             null,
             GutterIconRenderer.Alignment.LEFT,
             { "Icon glyph U+%04X".format(codepoint) },

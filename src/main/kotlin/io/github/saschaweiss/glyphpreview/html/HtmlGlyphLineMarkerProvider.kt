@@ -8,6 +8,7 @@ import com.intellij.psi.xml.XmlAttribute
 import com.intellij.psi.xml.XmlAttributeValue
 import com.intellij.psi.xml.XmlToken
 import com.intellij.psi.xml.XmlTokenType
+import io.github.saschaweiss.glyphpreview.detect.AutoRegisterService
 
 /**
  * Draws the matching glyph in the gutter next to `<i class="fas fa-pencil">`.
@@ -25,16 +26,25 @@ class HtmlGlyphLineMarkerProvider : LineMarkerProvider {
         val attribute = attributeValue.parent as? XmlAttribute ?: return null
         if (!attribute.name.equals("class", ignoreCase = true)) return null
 
-        val (iconName, icon) = HtmlIconResolver.firstRenderable(attributeValue.value) ?: return null
+        val classes = attributeValue.value
+        val rendered = HtmlIconResolver.firstRenderable(classes)
+        if (rendered == null) {
+            // Recognised icon class we can't render → offer auto-registration.
+            HtmlIconResolver.usageFor(classes)?.let {
+                AutoRegisterService.getInstance(element.project).consider(it)
+            }
+            return null
+        }
+        val (iconName, icon) = rendered
 
         return LineMarkerInfo(
             element,
             element.textRange,
             icon,
-            { "FontAwesome: $iconName" },
+            { "Icon: $iconName" },
             null,
             GutterIconRenderer.Alignment.LEFT,
-            { "FontAwesome icon $iconName" },
+            { "Icon $iconName" },
         )
     }
 }

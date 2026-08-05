@@ -1,6 +1,8 @@
 package io.github.saschaweiss.glyphpreview.html
 
 import com.intellij.util.ui.JBUI
+import io.github.saschaweiss.glyphpreview.detect.IconLibrary
+import io.github.saschaweiss.glyphpreview.detect.IconUsage
 import io.github.saschaweiss.glyphpreview.font.GlyphMetadata
 import io.github.saschaweiss.glyphpreview.font.GlyphRenderer
 import io.github.saschaweiss.glyphpreview.settings.GlyphSettings
@@ -56,11 +58,13 @@ object HtmlIconResolver {
         return null
     }
 
-    /** Render a codepoint with the weight-preferred registered font that contains it. */
+    /** Render a codepoint with a registered font of the matching weight that contains it. */
     fun renderCodepoint(codepoint: Int, weight: Int?, size: Int = JBUI.scale(13)): Icon? {
         val fonts = GlyphSettings.getInstance().fonts
-        val ordered = if (weight == null) fonts else fonts.sortedByDescending { it.weight == weight }
-        return ordered.firstNotNullOfOrNull { GlyphRenderer.icon(it.fontFilePath, codepoint, size) }
+        // Strict weight (0 = wildcard); no cross-weight fallback — see GlyphSettings.candidates.
+        val eligible = if (weight == null) fonts
+        else fonts.filter { it.weight == 0 || it.weight == weight }.sortedByDescending { it.weight == weight }
+        return eligible.firstNotNullOfOrNull { GlyphRenderer.icon(it.fontFilePath, codepoint, size) }
     }
 
     /** First class token in [classes] that maps to a registered icon: (name, codepoint). */
@@ -78,5 +82,14 @@ object HtmlIconResolver {
         val (name, codepoint) = firstCodepoint(classes) ?: return null
         val icon = renderCodepoint(codepoint, weightFromClasses(classes)) ?: return null
         return name to icon
+    }
+
+    /** Derives the icon usage from the first recognised icon class (for auto-registration). */
+    fun usageFor(classes: String): IconUsage? {
+        val weight = weightFromClasses(classes)
+        for (match in CLASS_TOKEN.findAll(classes)) {
+            IconLibrary.fromHtmlClass(match.value, weight)?.let { return it }
+        }
+        return null
     }
 }

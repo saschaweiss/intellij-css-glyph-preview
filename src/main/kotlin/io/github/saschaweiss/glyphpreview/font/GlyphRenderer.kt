@@ -6,6 +6,7 @@ import com.intellij.util.ui.JBUI
 import java.awt.Font
 import java.awt.RenderingHints
 import java.awt.image.BufferedImage
+import java.io.ByteArrayInputStream
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import javax.swing.Icon
@@ -49,10 +50,22 @@ object GlyphRenderer {
         return icon
     }
 
+    /** Whether the font at [fontPath] actually contains [codepoint]. */
+    fun canDisplay(fontPath: String, codepoint: Int): Boolean =
+        baseFont(fontPath)?.canDisplay(codepoint) == true
+
     private fun baseFont(path: String): Font? {
         fontCache[path]?.let { return it }
         val font = runCatching {
-            Font.createFont(Font.TRUETYPE_FONT, File(path))
+            if (path.endsWith(".woff", ignoreCase = true)) {
+                // Decode WOFF in-memory so family name / canDisplay work before the
+                // file is imported (and even if a .woff is registered directly).
+                val sfnt = WoffDecoder.decodeToSfnt(File(path).readBytes())
+                    ?: return@runCatching null
+                Font.createFont(Font.TRUETYPE_FONT, ByteArrayInputStream(sfnt))
+            } else {
+                Font.createFont(Font.TRUETYPE_FONT, File(path))
+            }
         }.onFailure { log.warn("Could not load font: $path", it) }.getOrNull() ?: return null
         fontCache[path] = font
         return font

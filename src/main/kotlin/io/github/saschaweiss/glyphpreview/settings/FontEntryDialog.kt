@@ -11,6 +11,7 @@ import com.intellij.ui.components.JBTextField
 import com.intellij.util.ui.FormBuilder
 import io.github.saschaweiss.glyphpreview.font.GlyphMetadata
 import io.github.saschaweiss.glyphpreview.font.GlyphRenderer
+import io.github.saschaweiss.glyphpreview.font.WoffDecoder
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
@@ -40,7 +41,7 @@ class FontEntryDialog(source: FontEntry?) : DialogWrapper(true) {
             null,
             // single file, no folders/jars/multi-select
             FileChooserDescriptor(true, false, false, false, false, false)
-                .withTitle("Select Icon Font (.ttf / .otf)"),
+                .withTitle("Select Icon Font (.ttf / .otf / .woff)"),
         )
         metaField.addBrowseFolderListener(
             null,
@@ -71,9 +72,12 @@ class FontEntryDialog(source: FontEntry?) : DialogWrapper(true) {
         if (path.isBlank() || !File(path).isFile) return
         val baseName = File(path).nameWithoutExtension
 
-        if (displayField.text.isBlank()) displayField.text = baseName
+        val internalFamily = runCatching { GlyphRenderer.familyNameOf(path) }.getOrNull()
+        if (displayField.text.isBlank()) displayField.text = internalFamily ?: baseName
         if (familyField.text.isBlank()) {
-            familyField.text = runCatching { GlyphRenderer.familyNameOf(path) }.getOrNull() ?: baseName
+            // font-family should be the BASE family the CSS uses ("Font Awesome 6 Pro"),
+            // not the style-specific getFamily() ("… Pro Regular"/"… Pro Solid").
+            familyField.text = stripStyleSuffix(internalFamily) ?: baseName
         }
         if (weightField.text.isBlank()) {
             Regex("""(\d{3})""").find(baseName)?.groupValues?.get(1)?.let { weightField.text = it }
@@ -81,6 +85,22 @@ class FontEntryDialog(source: FontEntry?) : DialogWrapper(true) {
         if (metaField.text.isBlank()) {
             FontAssets.findMetadataNear(path)?.let { metaField.text = it }
         }
+    }
+
+    // Drops trailing style words (Regular/Solid/Light/…) so the font-family becomes
+    // the base family used in CSS ("Font Awesome 6 Pro"), while family-defining words
+    // like Pro/Free/Brands/Sharp/Duotone are kept.
+    private fun stripStyleSuffix(name: String?): String? {
+        if (name == null) return null
+        val styles = setOf(
+            "regular", "solid", "light", "thin", "bold", "book", "medium", "black",
+            "italic", "oblique", "semibold", "extralight", "extrabold", "hairline",
+        )
+        var tokens = name.trim().split(Regex("\\s+"))
+        while (tokens.size > 1 && tokens.last().lowercase() in styles) {
+            tokens = tokens.dropLast(1)
+        }
+        return tokens.joinToString(" ").ifBlank { null }
     }
 
     override fun createCenterPanel(): JComponent = FormBuilder.createFormBuilder()
@@ -133,8 +153,21 @@ object FontAssets {
     fun importAsset(sourcePath: String): String = runCatching {
         val dir = assetsDir()
         Files.createDirectories(dir)
-        val target = dir.resolve(Path.of(sourcePath).fileName.toString())
-        Files.copy(Path.of(sourcePath), target, StandardCopyOption.REPLACE_EXISTING)
+        val source = Path.of(sourcePath)
+        val name = source.fileName.toString()
+
+        // WOFF → decode to a .ttf once, so java.awt.Font can read it. (WOFF2 is a
+        // separate, Brotli-based format handled in a later milestone.)
+        if (name.endsWith(".woff", ignoreCase = true)) {
+            WoffDecoder.decodeToSfnt(Files.readAllBytes(source))?.let { sfnt ->
+                val target = dir.resolve(name.substringBeforeLast('.') + ".ttf")
+                Files.write(target, sfnt)
+                return@runCatching target.toString()
+            }
+        }
+
+        val target = dir.resolve(name)
+        Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
         target.toString()
     }.getOrDefault(sourcePath)
 

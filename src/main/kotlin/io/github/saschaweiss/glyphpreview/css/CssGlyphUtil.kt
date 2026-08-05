@@ -6,8 +6,9 @@ import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileVisitor
 import com.intellij.psi.PsiElement
-import com.intellij.psi.css.CssBlock
+import com.intellij.psi.PsiFile
 import com.intellij.psi.css.CssDeclaration
+import com.intellij.psi.css.CssRuleset
 import com.intellij.psi.util.PsiModificationTracker
 import com.intellij.psi.util.PsiTreeUtil
 import java.util.concurrent.ConcurrentHashMap
@@ -33,28 +34,70 @@ object CssGlyphUtil {
     fun declarationOf(element: PsiElement): CssDeclaration? =
         PsiTreeUtil.getParentOfType(element, CssDeclaration::class.java, false)
 
-    /** Nearest `{ ... }` block text, used to look up sibling declarations. */
-    private fun blockText(element: PsiElement): String? =
-        PsiTreeUtil.getParentOfType(element, CssBlock::class.java, false)?.text
+    // Type-agnostic climb over the PSI parent chain. SCSS nesting doesn't always
+    // expose the outer container as a CssBlock, so walking CssBlock-only misses a
+    // font-family/weight declared in a sibling rule (e.g. `&:before, &:after {…}`
+    // next to a separate `&:after { content }`). Walking generic parents and
+    // scanning each ancestor's text finds it. Capped to avoid runaway/over-reach.
+    private const val MAX_CLIMB = 12
 
-    /** font-family declared in the same block, with quotes stripped and $vars resolved. */
+    private fun ancestors(element: PsiElement): Sequence<PsiElement> = sequence {
+        var current: PsiElement? = element
+        var depth = 0
+        while (current != null && current !is PsiFile && depth < MAX_CLIMB) {
+            yield(current)
+            current = current.parent
+            depth++
+        }
+    }
+
+    /** The pseudo-element (`before`/`after`) the content belongs to, or null. */
+    private fun pseudoOf(element: PsiElement): String? {
+        val selector = PsiTreeUtil.getParentOfType(element, CssRuleset::class.java)
+            ?.text?.substringBefore('{') ?: return null
+        return when {
+            Regex("""::?after\b""").containsMatchIn(selector) -> "after"
+            Regex("""::?before\b""").containsMatchIn(selector) -> "before"
+            else -> null
+        }
+    }
+
+    // Matches a `font-family`/`font-weight` declared inside a rule that targets the
+    // given pseudo-element — so the element's OWN font (e.g. proxima-nova on a button)
+    // is ignored, and only `::before`/`::after` rules count. `[^{}]` keeps each match
+    // inside a single block.
+    private fun pseudoFamilyRegex(p: String) =
+        Regex("""::?$p\b[^{}]*\{[^{}]*?font-family\s*:\s*([^;}\r\n]+)""")
+
+    private fun pseudoWeightRegex(p: String) =
+        Regex("""::?$p\b[^{}]*\{[^{}]*?font-weight\s*:\s*(\d{3})""")
+
+    /**
+     * font-family for the rule. For a `::before`/`::after` `content`, only rules
+     * targeting that same pseudo count (climbing ancestors) — this catches the
+     * FontAwesome pattern where `font-family` lives in a sibling `&:before, &:after`
+     * rule while `content` sits in a separate `&:after`, and ignores the element's
+     * own text font. SCSS variables (incl. @use namespaces) are resolved.
+     */
     fun resolveFamily(element: PsiElement): String? {
-        val block = blockText(element) ?: return null
-        val raw = FAMILY.find(block)?.groupValues?.get(1)?.trim() ?: return null
-        return normalizeFamily(raw, element)
+        val pseudo = pseudoOf(element)
+        val regex = if (pseudo != null) pseudoFamilyRegex(pseudo) else FAMILY
+        for (ancestor in ancestors(element)) {
+            regex.find(ancestor.text)?.let { return normalizeFamily(it.groupValues[1].trim(), element) }
+        }
+        return null
     }
 
     /**
-     * font-weight for the rule. Looks in the current block, then walks up parent
-     * blocks (a light cascade for the `&:after` nested case), and defaults to 400
-     * (normal) when none is set — matching how the browser resolves an
+     * font-weight for the rule (pseudo-aware, same as [resolveFamily]); defaults to
+     * 400 (normal) when none is found — matching how the browser resolves an
      * unspecified weight.
      */
     fun resolveWeight(element: PsiElement): Int {
-        var block = PsiTreeUtil.getParentOfType(element, CssBlock::class.java, false)
-        while (block != null) {
-            WEIGHT.find(block.text)?.groupValues?.get(1)?.toIntOrNull()?.let { return it }
-            block = PsiTreeUtil.getParentOfType(block, CssBlock::class.java, true)
+        val pseudo = pseudoOf(element)
+        val regex = if (pseudo != null) pseudoWeightRegex(pseudo) else WEIGHT
+        for (ancestor in ancestors(element)) {
+            regex.find(ancestor.text)?.groupValues?.get(1)?.toIntOrNull()?.let { return it }
         }
         return 400
     }

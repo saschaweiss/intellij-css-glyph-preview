@@ -26,8 +26,9 @@ src/main/kotlin/io/github/saschaweiss/glyphpreview/
   settings/GlyphSettings.kt        registered fonts (PersistentStateComponent)
   settings/GlyphConfigurable.kt    UI under Settings > Tools > CSS Glyph Preview
   settings/FontEntryDialog.kt      add/edit dialog + asset import/cleanup
-  font/GlyphRenderer.kt            load font + render codepoint -> icon (cached)
+  font/GlyphRenderer.kt            load font (incl. woff) + render codepoint -> icon (cached)
   font/GlyphMetadata.kt            name<->codepoint from a CSS map (e.g. FA fontawesome.min.css)
+  font/WoffDecoder.kt              WOFF -> sfnt (ttf/otf) decoder
   css/CssGlyphUtil.kt              content codepoint, font-family (incl. $SCSS vars) & font-weight
   marker/GlyphLineMarkerProvider.kt          CSS gutter icon
   completion/GlyphCompletionContributor.kt   CSS icon picker
@@ -35,6 +36,9 @@ src/main/kotlin/io/github/saschaweiss/glyphpreview/
   html/HtmlGlyphLineMarkerProvider.kt        HTML gutter icon
   html/HtmlGlyphCompletionContributor.kt     decorates HTML class completions with the icon
   doc/GlyphDocumentationProvider.kt          hover / Quick Documentation preview (CSS + HTML)
+  detect/IconLibrary.kt                      known icon libraries + usage model
+  detect/IconFontDetector.kt                 finds a matching font+map in the project
+  detect/AutoRegisterService.kt              reactive notification + one-click registration
 ```
 
 ## How font resolution works
@@ -85,11 +89,18 @@ family `Font Awesome 7 Free` and weight `900`.
   (each class token is tried against the registered maps), and class completions are decorated with
   the icon in place — no duplicate entries.
 - **Hover / Quick Documentation** shows a larger glyph preview for CSS and HTML.
+- **Auto-registration**: opening a file that uses a known icon font (FontAwesome, MDI, LineIcons,
+  Unicons, CoreUI, Remix) which isn't set up yet offers a one-click registration of the matching
+  font found in the project — picking the font that actually contains the glyph. Dismissable per
+  font (`family|weight`).
+- **WOFF** fonts are decoded to a usable font on registration (`.woff`); WOFF2 is planned.
+- **Strict weight**: a rule's `font-weight` only previews with a font registered at that weight
+  (0 = wildcard) — mirrors the browser, no cross-weight fallback.
 
 ## Known limitations (intentionally left open)
 
-- **woff2 is NOT supported** — `java.awt.Font` only reads `.ttf`/`.otf`. Register such a file
-  (FontAwesome ships it in the desktop download / npm `webfonts` folder).
+- **woff2 is NOT supported yet** — `java.awt.Font` only reads `.ttf`/`.otf`/(decoded) `.woff`.
+  Register a `.ttf`/`.otf`/`.woff` (WOFF2 support is planned).
 - **No full CSS cascade**: `font-family`/`font-weight` are read from the current block and its
   parent blocks, not resolved across arbitrary selectors (covers the common `&:after { … }` case).
 - **SVG-sprite icon sets are not supported** — only real icon *fonts* (`.ttf`/`.otf` with an
@@ -102,11 +113,12 @@ family `Font Awesome 7 Free` and weight `900`.
 
 ## Possible next steps
 
+- WOFF2 support (Brotli decode + sfnt reconstruction).
 - Full Sass PSI variable resolution (handles `!default` chains, maps; robust across imports).
 - Make the CSS hover target trigger as reliably as the HTML one.
 
 Done since 1.0.0: HTML/Twig support, font-agnostic icon sets with metadata auto-detection,
-hover preview, `@use`-namespaced SCSS variables.
+hover preview, `@use`-namespaced SCSS variables, auto-registration, WOFF, strict weight matching.
 
 ## License
 

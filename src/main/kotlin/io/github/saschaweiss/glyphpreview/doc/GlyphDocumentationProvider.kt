@@ -68,8 +68,9 @@ class GlyphDocumentationProvider : AbstractDocumentationProvider() {
             val (name, cp) = HtmlIconResolver.firstCodepoint(attributeValue.value) ?: return null
             val weight = HtmlIconResolver.weightFromClasses(attributeValue.value)
             val fonts = GlyphSettings.getInstance().fonts
-            val ordered = if (weight == null) fonts else fonts.sortedByDescending { it.weight == weight }
-            val entry = ordered.firstOrNull { GlyphRenderer.icon(it.fontFilePath, cp) != null } ?: return null
+            val eligible = if (weight == null) fonts
+            else fonts.filter { it.weight == 0 || it.weight == weight }.sortedByDescending { it.weight == weight }
+            val entry = eligible.firstOrNull { GlyphRenderer.icon(it.fontFilePath, cp) != null } ?: return null
             return Glyph(name, entry.fontFilePath, cp)
         }
         return null
@@ -92,8 +93,6 @@ class GlyphDocumentationProvider : AbstractDocumentationProvider() {
         }
         file.toURI().toString()
     }.getOrNull()
-
-    private companion object {
-        val CONTENT_CP = Regex("""content\s*:\s*["']\\([0-9A-Fa-f]+)""")
-    }
 }
+
+private val CONTENT_CP = Regex("""content\s*:\s*["']\\([0-9A-Fa-f]+)""")
