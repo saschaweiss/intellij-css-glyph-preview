@@ -3,6 +3,7 @@ package io.github.saschaweiss.glyphpreview.settings
 import com.intellij.openapi.application.PathManager
 import com.intellij.openapi.fileChooser.FileChooserDescriptor
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
+import com.intellij.openapi.fileChooser.FileChooserFactory
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.openapi.ui.ValidationInfo
@@ -37,14 +38,14 @@ class FontEntryDialog(source: FontEntry?) : DialogWrapper(true) {
     init {
         title = if (source == null) "Add Icon Font" else "Edit Icon Font"
 
-        fontField.addBrowseFolderListener(
-            null,
-            // single file, no folders/jars/multi-select
+        // single file, no folders/jars/multi-select
+        installBrowse(
+            fontField,
             FileChooserDescriptor(true, false, false, false, false, false)
                 .withTitle("Select Icon Font (.ttf / .otf / .woff)"),
         )
-        metaField.addBrowseFolderListener(
-            null,
+        installBrowse(
+            metaField,
             FileChooserDescriptorFactory.createSingleFileDescriptor("css")
                 .withTitle("Select Icon Metadata CSS (e.g. fontawesome.min.css)"),
         )
@@ -101,6 +102,15 @@ class FontEntryDialog(source: FontEntry?) : DialogWrapper(true) {
             tokens = tokens.dropLast(1)
         }
         return tokens.joinToString(" ").ifBlank { null }
+    }
+
+    // Wires the browse button to the IDE's own (Swing) file chooser instead of the
+    // native macOS panel, which intermittently fights the modal dialog for focus.
+    private fun installBrowse(field: TextFieldWithBrowseButton, descriptor: FileChooserDescriptor) {
+        field.addActionListener {
+            val chooser = FileChooserFactory.getInstance().createFileChooser(descriptor, null, field)
+            chooser.choose(null).firstOrNull()?.let { field.text = it.path }
+        }
     }
 
     override fun createCenterPanel(): JComponent = FormBuilder.createFormBuilder()

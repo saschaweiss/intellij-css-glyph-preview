@@ -40,14 +40,24 @@ object HtmlIconResolver {
     /** Any CSS class token. */
     private val CLASS_TOKEN = Regex("""[A-Za-z_][A-Za-z0-9_-]*""")
 
+    // Combined map is built from all registered metadata; cached until settings change
+    // (cleared alongside GlyphMetadata/GlyphRenderer caches).
+    @Volatile
+    private var codepointCache: Map<String, Int>? = null
+
     /** Combined icon-name -> codepoint map from all registered metadata maps. */
     fun nameToCodepoint(): Map<String, Int> {
+        codepointCache?.let { return it }
         val map = HashMap<String, Int>()
         for (entry in GlyphSettings.getInstance().fonts) {
             val meta = entry.metadataPath ?: continue
             for (glyph in GlyphMetadata.load(meta)) map.putIfAbsent(glyph.name, glyph.codepoint)
         }
-        return map
+        return map.also { codepointCache = it }
+    }
+
+    fun clearCache() {
+        codepointCache = null
     }
 
     /** Weight implied by a style class in the attribute, or null if none is known. */

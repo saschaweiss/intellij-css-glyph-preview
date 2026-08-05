@@ -22,7 +22,18 @@ class GlyphLineMarkerProvider : LineMarkerProvider {
     // The string literal leaf, e.g.  "\f35d"  or  '\f35d'
     private val tokenRegex = Regex("""^["']\\([0-9A-Fa-f]+)["']$""")
 
-    override fun getLineMarkerInfo(element: PsiElement): LineMarkerInfo<*>? {
+    // Fast pass: do nothing. Resolution (cross-file scan, cascade regex) is heavy,
+    // so it runs in the slow pass to keep editing responsive.
+    override fun getLineMarkerInfo(element: PsiElement): LineMarkerInfo<*>? = null
+
+    override fun collectSlowLineMarkers(
+        elements: MutableList<out PsiElement>,
+        result: MutableCollection<in LineMarkerInfo<*>>,
+    ) {
+        for (element in elements) markerFor(element)?.let { result.add(it) }
+    }
+
+    private fun markerFor(element: PsiElement): LineMarkerInfo<*>? {
         if (element.firstChild != null) return null // leaves only
 
         val match = tokenRegex.find(element.text.trim()) ?: return null

@@ -12,6 +12,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.util.concurrency.AppExecutorUtil
 import io.github.saschaweiss.glyphpreview.font.GlyphMetadata
 import io.github.saschaweiss.glyphpreview.font.GlyphRenderer
+import io.github.saschaweiss.glyphpreview.html.HtmlIconResolver
 import io.github.saschaweiss.glyphpreview.settings.FontAssets
 import io.github.saschaweiss.glyphpreview.settings.FontEntry
 import io.github.saschaweiss.glyphpreview.settings.GlyphConfigurable
@@ -83,6 +84,7 @@ class AutoRegisterService(private val project: Project) {
         )
         GlyphRenderer.clearCache()
         GlyphMetadata.clearCache()
+        HtmlIconResolver.clearCache()
         DaemonCodeAnalyzer.getInstance(project).restart()
     }
 

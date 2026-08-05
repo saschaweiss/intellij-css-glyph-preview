@@ -19,7 +19,17 @@ import io.github.saschaweiss.glyphpreview.detect.AutoRegisterService
  */
 class HtmlGlyphLineMarkerProvider : LineMarkerProvider {
 
-    override fun getLineMarkerInfo(element: PsiElement): LineMarkerInfo<*>? {
+    // Fast pass does nothing; resolution runs in the slow pass to keep editing snappy.
+    override fun getLineMarkerInfo(element: PsiElement): LineMarkerInfo<*>? = null
+
+    override fun collectSlowLineMarkers(
+        elements: MutableList<out PsiElement>,
+        result: MutableCollection<in LineMarkerInfo<*>>,
+    ) {
+        for (element in elements) markerFor(element)?.let { result.add(it) }
+    }
+
+    private fun markerFor(element: PsiElement): LineMarkerInfo<*>? {
         if (element !is XmlToken || element.tokenType != XmlTokenType.XML_ATTRIBUTE_VALUE_TOKEN) return null
 
         val attributeValue = element.parent as? XmlAttributeValue ?: return null
