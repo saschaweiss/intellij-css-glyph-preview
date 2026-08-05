@@ -1,11 +1,13 @@
 package io.github.saschaweiss.glyphpreview.css
 
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.vfs.VfsUtilCore
+import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.openapi.vfs.VirtualFileVisitor
 import com.intellij.psi.PsiElement
 import com.intellij.psi.css.CssBlock
 import com.intellij.psi.css.CssDeclaration
-import com.intellij.psi.search.FilenameIndex
-import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiModificationTracker
 import com.intellij.psi.util.PsiTreeUtil
 import java.util.concurrent.ConcurrentHashMap
@@ -98,16 +100,39 @@ object CssGlyphUtil {
         }
         crossFileVarCache[name]?.let { return it }
 
-        val scope = GlobalSearchScope.projectScope(project)
-        for (ext in listOf("scss", "sass")) {
-            for (vf in FilenameIndex.getAllFilesByExt(project, ext, scope)) {
-                val text = runCatching { VfsUtilCore.loadText(vf) }.getOrNull() ?: continue
-                val value = regex.find(text)?.let { clean(it.groupValues[1]) }
-                if (value != null) {
-                    crossFileVarCache[name] = value
-                    return value
+        val value = runCatching { scanContentRoots(project, regex) }.getOrNull()
+        if (value != null) crossFileVarCache[name] = value
+        return value
+    }
+
+    // Directory names not worth walking when searching for a variable definition.
+    private val SKIP_DIRS = setOf("node_modules", "vendor", ".git", ".idea", "dist", "build", "target")
+
+    /**
+     * Walks the project's content roots via the VFS looking for the `$name:`
+     * definition. Deliberately does NOT use the filename index / search scopes —
+     * those miss files in some setups (e.g. symlinked ServBay/WordPress projects).
+     */
+    private fun scanContentRoots(project: Project, regex: Regex): String? {
+        for (root in ProjectRootManager.getInstance(project).contentRoots) {
+            var found: String? = null
+            VfsUtilCore.visitChildrenRecursively(root, object : VirtualFileVisitor<Any?>() {
+                override fun visitFileEx(file: VirtualFile): Result {
+                    if (found != null) return SKIP_CHILDREN
+                    if (file.isDirectory) {
+                        return if (file.name in SKIP_DIRS) SKIP_CHILDREN
+                        else CONTINUE
+                    }
+                    val ext = file.extension?.lowercase()
+                    if (ext == "scss" || ext == "sass") {
+                        runCatching { VfsUtilCore.loadText(file) }.getOrNull()?.let { text ->
+                            regex.find(text)?.let { found = clean(it.groupValues[1]) }
+                        }
+                    }
+                    return CONTINUE
                 }
-            }
+            })
+            if (found != null) return found
         }
         return null
     }
