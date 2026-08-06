@@ -2,6 +2,8 @@ package io.github.saschaweiss.glyphpreview.detect
 
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.notification.NotificationAction
+import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.psi.PsiManager
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.application.ModalityState
@@ -85,7 +87,11 @@ class AutoRegisterService(private val project: Project) {
         GlyphRenderer.clearCache()
         GlyphMetadata.clearCache()
         HtmlIconResolver.clearCache()
-        DaemonCodeAnalyzer.getInstance(project).restart()
+        val analyzer = DaemonCodeAnalyzer.getInstance(project)
+        val psiManager = PsiManager.getInstance(project)
+        FileEditorManager.getInstance(project).openFiles.forEach { vf ->
+            psiManager.findFile(vf)?.let { analyzer.restart(it) }
+        }
     }
 
     companion object {

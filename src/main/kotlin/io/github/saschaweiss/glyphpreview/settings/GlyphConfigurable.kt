@@ -1,8 +1,10 @@
 package io.github.saschaweiss.glyphpreview.settings
 
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
+import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.project.ProjectManager
+import com.intellij.psi.PsiManager
 import com.intellij.ui.ToolbarDecorator
 import com.intellij.ui.table.JBTable
 import io.github.saschaweiss.glyphpreview.font.GlyphMetadata
@@ -74,8 +76,12 @@ class GlyphConfigurable : Configurable {
         FontAssets.cleanupOrphans(settings.fonts)
         // Re-run the daemon so gutter icons reflect the new fonts immediately,
         // without having to touch the file first.
-        ProjectManager.getInstance().openProjects.forEach {
-            DaemonCodeAnalyzer.getInstance(it).restart()
+        ProjectManager.getInstance().openProjects.forEach { project ->
+            val analyzer = DaemonCodeAnalyzer.getInstance(project)
+            val psiManager = PsiManager.getInstance(project)
+            FileEditorManager.getInstance(project).openFiles.forEach { vf ->
+                psiManager.findFile(vf)?.let { analyzer.restart(it) }
+            }
         }
     }
 
