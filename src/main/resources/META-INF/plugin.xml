@@ -36,6 +36,14 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <p><b>1.3.0</b></p>
+        <ul>
+            <li><b>Inspections with quick-fixes.</b> In CSS/SCSS: a <code>content</code> icon that
+                won't render at the rule's <code>font-weight</code> (but exists at another registered
+                weight) is flagged &mdash; one click sets the correct weight. In HTML: an unknown
+                icon-font class (e.g. a typo like <code>fa-pencl</code>) is flagged when that
+                library's map is registered, and the closest known name is offered as a fix.</li>
+        </ul>
         <p><b>1.2.0</b></p>
         <ul>
             <li><b>Auto-registration</b>: when you open a CSS/SCSS/HTML file using a known icon font
@@ -73,6 +81,11 @@
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.css</depends>
 
+    <!-- XML/HTML PSI. Since 2026.3 this ships as the separate bundled plugin
+         com.intellij.xml; the alias below resolves to it there and to the
+         platform in older builds. -->
+    <depends>com.intellij.modules.xml</depends>
+
     <extensions defaultExtensionNs="com.intellij">
         <applicationService
             serviceImplementation="io.github.saschaweiss.glyphpreview.settings.GlyphSettings"/>
@@ -102,6 +115,22 @@
         <lang.documentationProvider
             language="HTML"
             implementationClass="io.github.saschaweiss.glyphpreview.doc.GlyphDocumentationProvider"/>
+
+        <!-- Inspections + quick-fixes: wrong font-weight (CSS/SCSS), unknown icon name (HTML) -->
+        <localInspection
+            language="CSS"
+            implementationClass="io.github.saschaweiss.glyphpreview.inspection.CssGlyphInspection"
+            displayName="Icon glyph not available at this font-weight"
+            groupName="CSS Glyph Preview"
+            enabledByDefault="true"
+            level="WARNING"/>
+        <localInspection
+            language="HTML"
+            implementationClass="io.github.saschaweiss.glyphpreview.inspection.HtmlGlyphInspection"
+            displayName="Unknown icon-font class"
+            groupName="CSS Glyph Preview"
+            enabledByDefault="true"
+            level="WARNING"/>
 
         <!-- Auto-registration notifications -->
         <notificationGroup id="CSS Glyph Preview" displayType="BALLOON"/>

@@ -90,7 +90,7 @@ class AutoRegisterService(private val project: Project) {
         val analyzer = DaemonCodeAnalyzer.getInstance(project)
         val psiManager = PsiManager.getInstance(project)
         FileEditorManager.getInstance(project).openFiles.forEach { vf ->
-            psiManager.findFile(vf)?.let { analyzer.restart(it) }
+            psiManager.findFile(vf)?.let { analyzer.restart(it, "CSS Glyph Preview: fonts auto-registered") }
         }
     }
 
